@@ -1,74 +1,41 @@
+#!/usr/bin/env ruby
 
-class BetaPackGenerator
-  def initialize
-    commons = []
-    uncommons = []
-    rares = []
-    File.read("abu.checklist").split("\n").each do |line|
-      card, artist, rarity = line.split("\t")
-      case rarity[0]
-        when "C"
-          commons << card
-        when "U"
-          uncommons << card
-        when "R"
-          rares << card
-        else
-          raise ArgumentError "wtfmonkies"
-      end
-    end
+require_relative "./beta_pack_generator"
+require "optionparser"
 
-# Islands are rare!
-    4.times { rares << "Island"}
-
-# Basics are uncommon!
-    6.times { uncommons << "Plains"}
-    2.times { uncommons << "Island"}
-    6.times { uncommons << "Swamp"}
-    6.times { uncommons << "Mountain"}
-    6.times { uncommons << "Forest"}
-
-# Basics are common!
-    9.times {
-      commons << "Island"
-      commons << "Swamp"
-      commons << "Mountain"
-      commons << "Forest"
-    }
-    8.times { commons << "Plains"}
-    commons << "Island"
-    commons << "Mountain"
-
-    @commons = commons
-    @uncommons = uncommons
-    @rares = rares
+options = {remove_basics: false, sort: false}
+OptionParser.new do |opts|
+  opts.banner = "Usage: ruby gen.rb [options] PACKS_PER_POOL NUM_POOLS"
+  opts.on_tail("-h", "--help", "Show this message") do
+    puts opts
+    exit
   end
-
-  def pack
-    pack = []
-    pack << @rares.sample
-    3.times { pack << @uncommons.sample }
-    11.times { pack << @commons.sample }
-    return pack
+  opts.on("-r", "--remove_basics", "Remove basic lands after generating packs.") do
+    options[:remove_basics] = true
   end
-
-  def packs(number)
-    output = []
-    number.times do
-      output += pack
-    end
-    return output
+  opts.on("-s", "--sort", "Sort each pool alphabetically.") do
+    options[:sort] = true
   end
-
-end
-
+end.parse!
 
 packs_per_pool = ARGV[0].to_i
 num_pools = ARGV[1].to_i
+
 puts "Generating #{num_pools} pools of #{packs_per_pool} boosters each."
+if num_pools == 0 && packs_per_pool == 0
+  puts "Try gen.rb --help for info"
+end
 
 gen = BetaPackGenerator.new
 
 (1..num_pools).to_a.each do |i|
-  File.write "pool#{i}", gen.packs(packs_per_pool).join("\n")
+  pool = gen.packs(packs_per_pool)
+  if options[:remove_basics]
+    pool = gen.remove_basics(pool)
+  end
+  if options[:sort]
+    pool.sort!
+  end
+  File.write "pool#{i}", pool.join("\n")
 end
+
